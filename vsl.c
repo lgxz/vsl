@@ -4,7 +4,6 @@
 
 #include <Python.h>
 
-
 #include <varnish/libvarnish.h>
 #include <varnish/vsl.h>
 #include <varnish/vbm.h>
@@ -13,19 +12,18 @@
 #include <varnish/vsm_api.h>
 #include <varnish/vsl_api.h>
 
+#define MAX_ARGS	64
+
 static struct VSM_data *m_vd = NULL;
 
 
-static int vsl_init(void)
+static int init_vsl(int argc, char **argv)
 {
-	int c, argc;
-	char **argv;
+	int c;
 	struct VSM_data *vd;
 
 	vd = VSM_New();
 	VSL_Setup(vd);
-
-	Py_GetArgcArgv(&argc, &argv);
 
 	while ((c = getopt(argc, argv, VSL_ARGS)) != -1)
 	{
@@ -44,11 +42,19 @@ static int vsl_init(void)
 }
 
 
-static PyObject *next_log(uint32_t *p)
+static PyObject *next_log(void)
 {
+	int e;
 	struct vsl *vsl;
-	uint32_t fd, len;
+	uint32_t fd, len, *p;
 	const char *tag, *type, *msg;
+
+	e = VSL_NextLog(m_vd, &p, NULL);
+	if (e <= 0)
+	{
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
 
 	vsl = m_vd->vsl;
 	fd = VSL_ID(p);
@@ -70,44 +76,61 @@ static PyObject *next_log(uint32_t *p)
 
 static PyObject *vsl_next_log(PyObject *self, PyObject *args)
 {
-	int e;
-	uint32_t *p;
-	PyObject *ret;
-
-	e = VSL_NextLog(m_vd, &p, NULL);
-	if (e > 0)
+	if (m_vd == NULL)
 	{
-		ret = next_log(p);
-	}
-	else
-	{
-		Py_INCREF(Py_None);
-		ret = Py_None;
+		int e, argc;
+		char **argv;
+
+		Py_GetArgcArgv(&argc, &argv);
+
+		e = init_vsl(argc, argv);
+		if (e < 0)
+		{
+			return PyErr_Format(PyExc_IOError, "init_vsl: %d", e);
+		}
 	}
 
-	return ret;
+	return next_log();
 }
 
 
-static PyMethodDef prctlMethods[] = 
+static PyObject *vsl_init(PyObject *self, PyObject *args)
+{
+	char *s, *p;
+	int e, argc;
+	char *argv[MAX_ARGS];
+
+	if (!PyArg_ParseTuple(args, "s", &s))
+	{
+		return NULL;
+	}
+
+	s = strdup(s);
+	p = strtok(s, " ");
+	argc = 1;
+	argv[0] = "vsl";
+	while (p && argc < MAX_ARGS)
+	{
+		argv[argc++] = p;
+		p = strtok(NULL, " ");
+	}
+
+	e = init_vsl(argc, argv);
+
+	return Py_BuildValue("i", (e == 0));
+}
+
+
+static PyMethodDef vslMethods[] = 
 {
 	{"next_log", vsl_next_log, METH_VARARGS, "Get Next log"},
+	{"init", vsl_init, METH_VARARGS, "Init VSL"},
 	{NULL, NULL, 0, NULL}
 };
 
 
 PyMODINIT_FUNC initvsl(void)
 {
-	int e;
-
-	e = vsl_init();
-	if (e < 0)
-	{
-		fprintf(stderr, "vsl_init error: %d\n", e);
-		return;
-	}
-
-	Py_InitModule("vsl", prctlMethods);
+	Py_InitModule("vsl", vslMethods);
 }
-
 

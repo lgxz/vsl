@@ -12,7 +12,7 @@ module1 = Extension('vsl', sources = ['vsl.c'],
         runtime_library_dirs = [VLIB])
 
 setup (name = 'vsl',
-       version = '0.2',
+       version = '0.3',
        author = "lgx",
        author_email = "lgx@live.com",
        description = 'Varnish VSL interface',
