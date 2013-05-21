@@ -37,6 +37,11 @@ static int init_vsl(int argc, char **argv)
 
 	VSL_NonBlocking(vd, 1);
 
+	if (m_vd != NULL)
+	{
+		VSM_Delete(m_vd);
+	}
+
 	m_vd = vd;
 	return 0;
 }
