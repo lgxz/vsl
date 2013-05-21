@@ -57,6 +57,11 @@ static PyObject *next_log(void)
 	e = VSL_NextLog(m_vd, &p, NULL);
 	if (e <= 0)
 	{
+		if (e == 0)
+		{
+			VSM_ReOpen(m_vd, 0);
+		}
+
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
