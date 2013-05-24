@@ -22,6 +22,12 @@ static int init_vsl(int argc, char **argv)
 	int c;
 	struct VSM_data *vd;
 
+	if (m_vd != NULL)
+	{
+		VSM_ReOpen(m_vd, 1);
+		return 0;
+	}
+
 	vd = VSM_New();
 	VSL_Setup(vd);
 
@@ -30,16 +36,11 @@ static int init_vsl(int argc, char **argv)
 		VSL_Arg(vd, c, optarg);
 	}
 
+	VSL_NonBlocking(vd, 1);
+
 	if (VSL_Open(vd, 1))
 	{
 		return -1;
-	}
-
-	VSL_NonBlocking(vd, 1);
-
-	if (m_vd != NULL)
-	{
-		VSM_Delete(m_vd);
 	}
 
 	m_vd = vd;
@@ -57,11 +58,6 @@ static PyObject *next_log(void)
 	e = VSL_NextLog(m_vd, &p, NULL);
 	if (e <= 0)
 	{
-		if (e == 0)
-		{
-			VSM_ReOpen(m_vd, 0);
-		}
-
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
